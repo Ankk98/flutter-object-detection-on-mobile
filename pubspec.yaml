@@ -1,5 +1,5 @@
 name: flutter_object_detection_on_mobile
-description: A new Flutter project.
+description: App to demonstrate object detection on smartphones using Flutter & Tensorflow Lite frameworks.
 
 # The following defines the version and build number for your application.
 # A version number is three numbers separated by dots, like 1.2.43
@@ -23,6 +23,7 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^0.1.2
+  camera:
 
 dev_dependencies:
   flutter_test:
@@ -34,6 +35,9 @@ dev_dependencies:
 
 # The following section is specific to Flutter.
 flutter:
+  # assets:
+  #   - assets/tflite/detect.tflite
+  #   - assets/tflite/labelmap.txt
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in

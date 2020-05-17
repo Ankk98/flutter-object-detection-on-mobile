@@ -1,16 +1,18 @@
-# flutter_object_detection_on_mobile
+# Object detection on smartphone [WIP]
+App to demonstrate object detection on smartphones using Flutter & Tensorflow Lite frameworks.
 
-A new Flutter project.
+### Constrains
+- minSdk version 21
+- Tested on Smartphone with Android 9
 
-## Getting Started
+### Tech Stack
+- Flutter
+- Tensorflow Lite
+- YOLOv2 deep learning model
 
-This project is a starting point for a Flutter application.
+### How to use?
+1. Open App -- Camera preview will be shown
+2. Press capture button to click image and see objects detected in it with bounding boxes
+3. Press back button to go back or save button to save on disk
 
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://flutter.dev/docs/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://flutter.dev/docs/cookbook)
-
-For help getting started with Flutter, view our
-[online documentation](https://flutter.dev/docs), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+### Screenshots
