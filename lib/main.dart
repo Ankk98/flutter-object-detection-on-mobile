@@ -36,6 +36,7 @@ class _MyHomePageState extends State<MyHomePage> {
   Uint8List snapShot;
   Map savedRectangle;
   var tfLiteBusy = false;
+  var imageText = '';
 
   @override
   void initState() {
@@ -91,10 +92,9 @@ class _MyHomePageState extends State<MyHomePage> {
       detectObjectsFuture,
       Future.delayed(Duration(milliseconds: 500)),
     ]);
-    // statusText = results[0].toString();
     setState(() {
       savedImage = image;
-      savedRectangle = results[0];      
+      savedRectangle = results[0];
     });
 
     isProcessing = false;
@@ -102,24 +102,25 @@ class _MyHomePageState extends State<MyHomePage> {
 
   // takes snapshot and saves image to gallery when button is pressed
   void takeSnapshot() async {
-    //detect
-    // Future detectObjectsFuture = detectObjects(savedImage);
-    // List results = await Future.wait([
-    //   detectObjectsFuture,
-    //   Future.delayed(Duration(milliseconds: 500)),
-    // ]);
+    if (showSnapshot == true) {
+      setState(() {
+        showSnapshot = false;
+      });
+      return;
+    }
     //draw on picture
-
     //convert
+    imageText = statusText;
     convertedImage = _convertCameraImage(savedImage);
     convertedImage = imglib.copyResize(
       convertedImage,
       height: MediaQuery.of(context).size.height.toInt(),
     );
     snapShot = imglib.encodePng(convertedImage);
-    
+
     //save to gallery
-    await ImageGallerySaver.saveImage(snapShot);
+    final igs = await ImageGallerySaver.saveImage(snapShot);
+    print(igs);
     //show saved image
     setState(() {
       showSnapshot = true;
@@ -135,9 +136,9 @@ class _MyHomePageState extends State<MyHomePage> {
       body: Container(
         child: Column(
           children: <Widget>[
-            Text(statusText),
+            (showSnapshot == false)?Text(statusText):Text(imageText),
             isCameraInitialized
-                ? showSnapshot == false
+                ? (showSnapshot == false)
                     ? Expanded(
                         child: OverflowBox(
                           child: AspectRatio(
@@ -189,27 +190,28 @@ class _MyHomePageState extends State<MyHomePage> {
     tfLiteBusy = false;
 
     Map resultLabel;
-    double resultScore=0.0;
+    double resultScore = 0.0;
     for (int i = 0; i < resultList.length; i++) {
       Map currLabel = resultList[i];
       double currScore = currLabel['confidenceInClass'];
-      if( currScore > 0.6){
-          if(currScore > resultScore){
-            resultLabel = currLabel;
-          }
+      if (currScore > 0.6) {
+        if (currScore > resultScore) {
+          resultLabel = currLabel;
         }
+      }
     }
 
-    if(resultLabel != null){
-      statusText = resultLabel['detectedClass'].toString() + resultLabel['confidenceInClass'].toString();
-    }
-    else{
+    if (resultLabel != null) {
+      statusText = resultLabel['detectedClass'].toString() +
+          resultLabel['confidenceInClass'].toString();
+    } else {
       statusText = 'No object found';
-      resultLabel = {'rect':{'x':0.0, 'y':0.0, 'w':0.0, 'h':0.0}};
+      resultLabel = {
+        'rect': {'x': 0.0, 'y': 0.0, 'w': 0.0, 'h': 0.0}
+      };
     }
 
     return resultLabel['rect'];
-
   }
 
   static imglib.Image _convertCameraImage(CameraImage image) {

@@ -11,9 +11,9 @@ App to demonstrate object detection on smartphones using Flutter & Tensorflow Li
 - COCO SSD MobileNet deep learning model
 
 ### How to use?
-1. Open App -- Camera preview will be shown with detected objects in the bounding boxes
-2. Press capture button to click image with objects in bounding boxes
-3. Press back button to go back or save button to save on disk
+1. Open App -- Camera preview will be shown with detected objects in the bounding boxes with their class mentioned above
+2. Press capture button to click image with objects in bounding boxes with their class mentioned above
+3. Press the same button to go back and save that image
 
 ### Screenshots
 
