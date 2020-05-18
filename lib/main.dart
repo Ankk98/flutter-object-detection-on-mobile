@@ -65,7 +65,7 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void initializeCamera() async {
-    String results = await Tflite.loadModel(
+    await Tflite.loadModel(
         model: 'assets/tflite/detect.tflite',
         labels: 'assets/tflite/labelmap.txt',
         numThreads: 1);
@@ -122,7 +122,16 @@ class _MyHomePageState extends State<MyHomePage> {
                         child: OverflowBox(
                           child: AspectRatio(
                             aspectRatio: _cameraController.value.aspectRatio,
-                            child: CameraPreview(_cameraController),
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: <Widget>[
+                                CameraPreview(_cameraController),
+                                CustomPaint(
+                                  painter:
+                                      InferredObjectPainter(savedRectangle),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       )
@@ -203,6 +212,34 @@ class _MyHomePageState extends State<MyHomePage> {
     var img1 = imglib.copyRotate(img, 90);
     return img1;
   }
+}
+
+class InferredObjectPainter extends CustomPainter {
+  Map savedRectangle;
+  InferredObjectPainter(this.savedRectangle);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if(savedRectangle != null){
+      final paint = Paint();
+      paint.color = Colors.green;
+      paint.style = PaintingStyle.stroke;
+      paint.strokeWidth = 3.0;
+      double x, y, w, h;
+      x = savedRectangle["x"] * size.width;
+      y = savedRectangle["y"] * size.height;
+      w = savedRectangle["w"] * size.width;
+      h = savedRectangle["h"] * size.height;
+      Rect myRect = Offset(x, y) & Size(w, h);
+      canvas.drawRect(myRect, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(InferredObjectPainter oldDelegate) => oldDelegate.savedRectangle != savedRectangle;
+
+  @override
+  bool shouldRebuildSemantics(InferredObjectPainter oldDelegate) => false;
 }
 
 // Future<void> main() async {
