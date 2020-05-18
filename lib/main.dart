@@ -4,7 +4,9 @@ import 'package:flutter/foundation.dart';
 import 'package:camera/camera.dart';
 import 'package:flutter/services.dart';
 import 'package:image/image.dart' as imglib;
+import 'package:permission_handler/permission_handler.dart';
 import 'package:tflite/tflite.dart';
+import 'package:image_gallery_saver/image_gallery_saver.dart';
 
 void main() => runApp(MyApp());
 
@@ -26,7 +28,7 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   CameraController _cameraController;
   var statusText = '';
-  var cameraInitialized = false;
+  var isCameraInitialized = false;
   CameraImage savedImage;
   var isProcessing = false;
   imglib.Image convertedImage;
@@ -43,28 +45,12 @@ class _MyHomePageState extends State<MyHomePage> {
     initializeCamera();
   }
 
-  void procesCameraImage(image) async {
-    if (isProcessing) {
-      return;
-    }
-    isProcessing = true;
-
-    // perform object detection
-    Future detectObjectsFuture = detectObjects(image);
-    List results = await Future.wait([
-      detectObjectsFuture,
-      Future.delayed(Duration(milliseconds: 500)),
-    ]);
-
-    setState(() {
-      savedImage = image;
-      savedRectangle = results[0];
-    });
-
-    isProcessing = false;
-  }
-
+  // Takes permissions, load model,
+  // initialize camera with medium resoulution and starts streaming camera output
   void initializeCamera() async {
+    await Permission.camera.request();
+    await Permission.storage.request();
+
     await Tflite.loadModel(
         model: 'assets/tflite/detect.tflite',
         labels: 'assets/tflite/labelmap.txt',
@@ -78,9 +64,9 @@ class _MyHomePageState extends State<MyHomePage> {
       if (!mounted) {
         return;
       }
-      cameraInitialized = true;
+      isCameraInitialized = true;
       await _cameraController
-          .startImageStream((CameraImage image) => procesCameraImage(image));
+          .startImageStream((CameraImage image) => processCameraImage(image));
       statusText = 'Camera initialized';
       setState(() {});
     });
@@ -92,15 +78,49 @@ class _MyHomePageState extends State<MyHomePage> {
     super.dispose();
   }
 
-  void startProcessing() {
+  // To process live camera output & perform inferrence(object detection) every 0.5 seconds and sets state
+  void processCameraImage(image) async {
+    if (isProcessing) {
+      return;
+    }
+    isProcessing = true;
+
+    // perform object detection
+    Future detectObjectsFuture = detectObjects(image);
+    List results = await Future.wait([
+      detectObjectsFuture,
+      Future.delayed(Duration(milliseconds: 500)),
+    ]);
+    statusText = results[0].toString();
+    setState(() {
+      savedImage = image;
+      savedRectangle = results[0];
+    });
+
+    isProcessing = false;
+  }
+
+  // takes snapshot and saves image to gallery when button is pressed
+  void takeSnapshot() async {
+    //detect
+    Future detectObjectsFuture = detectObjects(savedImage);
+    List results = await Future.wait([
+      detectObjectsFuture,
+      Future.delayed(Duration(milliseconds: 500)),
+    ]);
+    //draw on picture
+
     //convert
     convertedImage = _convertCameraImage(savedImage);
-    // convertedImage = imglib.copyRotate(convertedImage, 90);
     convertedImage = imglib.copyResize(
       convertedImage,
       height: MediaQuery.of(context).size.height.toInt(),
     );
     snapShot = imglib.encodePng(convertedImage);
+    
+    //save to gallery
+    await ImageGallerySaver.saveImage(snapShot);
+    //show saved image
     setState(() {
       showSnapshot = true;
     });
@@ -116,7 +136,7 @@ class _MyHomePageState extends State<MyHomePage> {
         child: Column(
           children: <Widget>[
             Text(statusText),
-            cameraInitialized
+            isCameraInitialized
                 ? showSnapshot == false
                     ? Expanded(
                         child: OverflowBox(
@@ -141,7 +161,7 @@ class _MyHomePageState extends State<MyHomePage> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: startProcessing,
+        onPressed: takeSnapshot,
         backgroundColor: Colors.white,
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
@@ -220,7 +240,7 @@ class InferredObjectPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    if(savedRectangle != null){
+    if (savedRectangle != null) {
       final paint = Paint();
       paint.color = Colors.green;
       paint.style = PaintingStyle.stroke;
@@ -236,7 +256,8 @@ class InferredObjectPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(InferredObjectPainter oldDelegate) => oldDelegate.savedRectangle != savedRectangle;
+  bool shouldRepaint(InferredObjectPainter oldDelegate) =>
+      oldDelegate.savedRectangle != savedRectangle;
 
   @override
   bool shouldRebuildSemantics(InferredObjectPainter oldDelegate) => false;

@@ -26,6 +26,8 @@ dependencies:
   camera:
   image:
   tflite:
+  image_gallery_saver:
+  permission_handler:
 
 dev_dependencies:
   flutter_test:
