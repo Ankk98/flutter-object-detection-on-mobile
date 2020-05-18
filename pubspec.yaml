@@ -28,6 +28,7 @@ dependencies:
   tflite:
   image_gallery_saver:
   permission_handler:
+  image_save:
 
 dev_dependencies:
   flutter_test:

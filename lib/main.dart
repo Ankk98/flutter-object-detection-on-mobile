@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:image/image.dart' as imglib;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:tflite/tflite.dart';
-import 'package:image_gallery_saver/image_gallery_saver.dart';
+import 'package:image_save/image_save.dart';
 
 void main() => runApp(MyApp());
 
@@ -119,8 +119,10 @@ class _MyHomePageState extends State<MyHomePage> {
     snapShot = imglib.encodePng(convertedImage);
 
     //save to gallery
-    final igs = await ImageGallerySaver.saveImage(snapShot);
-    print(igs);
+    bool success = await ImageSave.saveImage(snapShot, "png");
+    if (success) {
+      // imageText += 'saved';
+    }
     //show saved image
     setState(() {
       showSnapshot = true;
@@ -136,7 +138,7 @@ class _MyHomePageState extends State<MyHomePage> {
       body: Container(
         child: Column(
           children: <Widget>[
-            (showSnapshot == false)?Text(statusText):Text(imageText),
+            (showSnapshot == false) ? Text(statusText) : Text(imageText),
             isCameraInitialized
                 ? (showSnapshot == false)
                     ? Expanded(
@@ -202,7 +204,9 @@ class _MyHomePageState extends State<MyHomePage> {
     }
 
     if (resultLabel != null) {
-      statusText = resultLabel['detectedClass'].toString() +
+      statusText = 'Class: ' +
+          resultLabel['detectedClass'].toString() +
+          ' Score: ' +
           resultLabel['confidenceInClass'].toString();
     } else {
       statusText = 'No object found';
@@ -275,17 +279,3 @@ class InferredObjectPainter extends CustomPainter {
   @override
   bool shouldRebuildSemantics(InferredObjectPainter oldDelegate) => false;
 }
-
-// Future<void> main() async {
-
-//   // to fix asyn error
-//   WidgetsFlutterBinding.ensureInitialized();
-
-//   cameras = await availableCameras();
-//   runApp(MyApp());
-// }
-
-// if (!_cameraController.value.isInitialized) {
-//       return Container();
-//     }
-//     return ;
