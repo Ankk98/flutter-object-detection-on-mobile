@@ -86,15 +86,15 @@ class _MyHomePageState extends State<MyHomePage> {
     isProcessing = true;
 
     // perform object detection
-    Future detectObjectsFuture = detectObjects(image);
+    Future<Map<dynamic, dynamic>> detectObjectsFuture = detectObjects(image);
     List results = await Future.wait([
       detectObjectsFuture,
       Future.delayed(Duration(milliseconds: 500)),
     ]);
-    statusText = results[0].toString();
+    // statusText = results[0].toString();
     setState(() {
       savedImage = image;
-      savedRectangle = results[0];
+      savedRectangle = results[0];      
     });
 
     isProcessing = false;
@@ -103,11 +103,11 @@ class _MyHomePageState extends State<MyHomePage> {
   // takes snapshot and saves image to gallery when button is pressed
   void takeSnapshot() async {
     //detect
-    Future detectObjectsFuture = detectObjects(savedImage);
-    List results = await Future.wait([
-      detectObjectsFuture,
-      Future.delayed(Duration(milliseconds: 500)),
-    ]);
+    // Future detectObjectsFuture = detectObjects(savedImage);
+    // List results = await Future.wait([
+    //   detectObjectsFuture,
+    //   Future.delayed(Duration(milliseconds: 500)),
+    // ]);
     //draw on picture
 
     //convert
@@ -183,22 +183,33 @@ class _MyHomePageState extends State<MyHomePage> {
       imageWidth: image.width,
       imageMean: 127.5,
       imageStd: 127.5,
-      threshold: 0.2, // Could be tweaked.
+      threshold: 0.2,
     );
 
     tfLiteBusy = false;
 
-    Map biggestRectangle;
-    double rectSize, rectMax = 0.0;
+    Map resultLabel;
+    double resultScore=0.0;
     for (int i = 0; i < resultList.length; i++) {
-      Map currRect = resultList[i]["rect"];
-      rectSize = currRect["w"] * currRect["h"];
-      if (rectSize > rectMax) {
-        rectMax = rectSize;
-        biggestRectangle = currRect;
-      }
+      Map currLabel = resultList[i];
+      double currScore = currLabel['confidenceInClass'];
+      if( currScore > 0.6){
+          if(currScore > resultScore){
+            resultLabel = currLabel;
+          }
+        }
     }
-    return biggestRectangle;
+
+    if(resultLabel != null){
+      statusText = resultLabel['detectedClass'].toString() + resultLabel['confidenceInClass'].toString();
+    }
+    else{
+      statusText = 'No object found';
+      resultLabel = {'rect':{'x':0.0, 'y':0.0, 'w':0.0, 'h':0.0}};
+    }
+
+    return resultLabel['rect'];
+
   }
 
   static imglib.Image _convertCameraImage(CameraImage image) {
