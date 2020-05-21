@@ -8,6 +8,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:tflite/tflite.dart';
 import 'package:image_save/image_save.dart';
 
+import 'inferred_object_painter.dart';
+
 void main() => runApp(MyApp());
 
 class MyApp extends StatelessWidget {
@@ -25,8 +27,10 @@ class MyHomePage extends StatefulWidget {
   _MyHomePageState createState() => _MyHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
+class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   CameraController _cameraController;
+
+  /// Text to be displayed when showing camera preview.
   var _statusText = '';
   var _isCameraInitialized = false;
   CameraImage _savedImage;
@@ -34,8 +38,12 @@ class _MyHomePageState extends State<MyHomePage> {
   imglib.Image _convertedImage;
   var _showSnapshot = false;
   Uint8List _snapShot;
+
+  /// Dimentions of rectangle to be dsiplayed.
   Map _savedRectangle;
   var _isTfLiteBusy = false;
+
+  /// Displayed with captured image.
   var _imageText = '';
 
   /// Change this enum to change preset resolution.
@@ -46,7 +54,27 @@ class _MyHomePageState extends State<MyHomePage> {
     super.initState();
     SystemChrome.setEnabledSystemUIOverlays([SystemUiOverlay.bottom]);
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
+    WidgetsBinding.instance.addObserver(this);
     _initializeCamera();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      _cameraController.dispose();
+      _isCameraInitialized = false;
+    }
+    if (state == AppLifecycleState.resumed) {
+      _resumeCamera();
+    }
+    print(state);
+  }
+
+  @override
+  void dispose() {
+    _cameraController.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   /// Takes permissions, load model, initializes the camera with medium resoulution and starts streaming camera output.
@@ -75,10 +103,21 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
-  @override
-  void dispose() {
-    _cameraController.dispose();
-    super.dispose();
+  void _resumeCamera() async {
+    List<CameraDescription> cameras;
+    cameras = await availableCameras();
+    _statusText = 'Waiting for the camera initialization';
+    _cameraController = CameraController(cameras[0], _resolution);
+    _cameraController.initialize().then((_) async {
+      if (!mounted) {
+        return;
+      }
+      _isCameraInitialized = true;
+      await _cameraController
+          .startImageStream((CameraImage image) => _processCameraImage(image));
+      _statusText = 'Camera initialized';
+      setState(() {});
+    });
   }
 
   /// To process live camera output & perform inferrence(object detection) every 0.5 seconds and sets state.
@@ -123,7 +162,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
     //save to gallery
     await ImageSave.saveImage(_snapShot, "png");
-    
+
     //show saved image
     setState(() {
       _showSnapshot = true;
@@ -190,6 +229,7 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
+  /// To detect object with highest prediction score in the CamreaImages object provided.
   Future<Map> _detectObjects(CameraImage image) async {
     if (_isTfLiteBusy) {
       return null;
@@ -237,7 +277,7 @@ class _MyHomePageState extends State<MyHomePage> {
     return resultLabel['rect'];
   }
 
-  /// To convert CameraImage to Image object.
+  /// To convert CameraImage object to Image object.
   static imglib.Image _convertCameraImage(CameraImage image) {
     int width = image.width;
     int height = image.height;
@@ -269,34 +309,4 @@ class _MyHomePageState extends State<MyHomePage> {
     var img1 = imglib.copyRotate(img, 90);
     return img1;
   }
-}
-
-/// To paint the inferred rectangle on the top of image. 
-class InferredObjectPainter extends CustomPainter {
-  Map _savedRectangle;
-  InferredObjectPainter(this._savedRectangle);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (_savedRectangle != null) {
-      final paint = Paint();
-      paint.color = Colors.green;
-      paint.style = PaintingStyle.stroke;
-      paint.strokeWidth = 3.0;
-      double x, y, w, h;
-      x = _savedRectangle["x"] * size.width;
-      y = _savedRectangle["y"] * size.height;
-      w = _savedRectangle["w"] * size.width;
-      h = _savedRectangle["h"] * size.height;
-      Rect myRect = Offset(x, y) & Size(w, h);
-      canvas.drawRect(myRect, paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(InferredObjectPainter oldDelegate) =>
-      oldDelegate._savedRectangle != _savedRectangle;
-
-  @override
-  bool shouldRebuildSemantics(InferredObjectPainter oldDelegate) => false;
 }
