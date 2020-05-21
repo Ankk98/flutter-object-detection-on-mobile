@@ -27,28 +27,30 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   CameraController _cameraController;
-  var statusText = '';
-  var isCameraInitialized = false;
-  CameraImage savedImage;
-  var isProcessing = false;
-  imglib.Image convertedImage;
-  var showSnapshot = false;
-  Uint8List snapShot;
-  Map savedRectangle;
-  var tfLiteBusy = false;
-  var imageText = '';
+  var _statusText = '';
+  var _isCameraInitialized = false;
+  CameraImage _savedImage;
+  var _isProcessing = false;
+  imglib.Image _convertedImage;
+  var _showSnapshot = false;
+  Uint8List _snapShot;
+  Map _savedRectangle;
+  var _isTfLiteBusy = false;
+  var _imageText = '';
+
+  /// Change this enum to change preset resolution.
+  var _resolution = ResolutionPreset.medium;
 
   @override
   void initState() {
     super.initState();
     SystemChrome.setEnabledSystemUIOverlays([SystemUiOverlay.bottom]);
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
-    initializeCamera();
+    _initializeCamera();
   }
 
-  // Takes permissions, load model,
-  // initialize camera with medium resoulution and starts streaming camera output
-  void initializeCamera() async {
+  /// Takes permissions, load model, initializes the camera with medium resoulution and starts streaming camera output.
+  void _initializeCamera() async {
     await Permission.camera.request();
     await Permission.storage.request();
 
@@ -59,16 +61,16 @@ class _MyHomePageState extends State<MyHomePage> {
 
     List<CameraDescription> cameras;
     cameras = await availableCameras();
-    statusText = 'Waiting for the camera initialization';
-    _cameraController = CameraController(cameras[0], ResolutionPreset.medium);
+    _statusText = 'Waiting for the camera initialization';
+    _cameraController = CameraController(cameras[0], _resolution);
     _cameraController.initialize().then((_) async {
       if (!mounted) {
         return;
       }
-      isCameraInitialized = true;
+      _isCameraInitialized = true;
       await _cameraController
-          .startImageStream((CameraImage image) => processCameraImage(image));
-      statusText = 'Camera initialized';
+          .startImageStream((CameraImage image) => _processCameraImage(image));
+      _statusText = 'Camera initialized';
       setState(() {});
     });
   }
@@ -79,103 +81,120 @@ class _MyHomePageState extends State<MyHomePage> {
     super.dispose();
   }
 
-  // To process live camera output & perform inferrence(object detection) every 0.5 seconds and sets state
-  void processCameraImage(image) async {
-    if (isProcessing) {
+  /// To process live camera output & perform inferrence(object detection) every 0.5 seconds and sets state.
+  void _processCameraImage(image) async {
+    // To prevent parallel predictions that might require extra resources.
+    if (_isProcessing) {
       return;
     }
-    isProcessing = true;
+    _isProcessing = true;
 
     // perform object detection
-    Future<Map<dynamic, dynamic>> detectObjectsFuture = detectObjects(image);
+    Future<Map<dynamic, dynamic>> detectObjectsFuture = _detectObjects(image);
     List results = await Future.wait([
       detectObjectsFuture,
       Future.delayed(Duration(milliseconds: 500)),
     ]);
+
     setState(() {
-      savedImage = image;
-      savedRectangle = results[0];
+      _savedImage = image;
+      _savedRectangle = results[0];
     });
 
-    isProcessing = false;
+    _isProcessing = false;
   }
 
-  // takes snapshot and saves image to gallery when button is pressed
-  void takeSnapshot() async {
-    if (showSnapshot == true) {
+  /// Takes snapshot and saves image to gallery when the button is pressed.
+  void _takeSnapshot() async {
+    if (_showSnapshot == true) {
       setState(() {
-        showSnapshot = false;
+        _showSnapshot = false;
       });
       return;
     }
-    //draw on picture
     //convert
-    imageText = statusText;
-    convertedImage = _convertCameraImage(savedImage);
-    convertedImage = imglib.copyResize(
-      convertedImage,
+    _imageText = _statusText;
+    _convertedImage = _convertCameraImage(_savedImage);
+    _convertedImage = imglib.copyResize(
+      _convertedImage,
       height: MediaQuery.of(context).size.height.toInt(),
     );
-    snapShot = imglib.encodePng(convertedImage);
+    _snapShot = imglib.encodePng(_convertedImage);
 
     //save to gallery
-    bool success = await ImageSave.saveImage(snapShot, "png");
-    if (success) {
-      // imageText += 'saved';
-    }
+    await ImageSave.saveImage(_snapShot, "png");
+    
     //show saved image
     setState(() {
-      showSnapshot = true;
+      _showSnapshot = true;
     });
+  }
+
+  Widget _buildPortraitContent(MediaQueryData mediaQuery, AppBar appBar) {
+    return Container(
+      child: _isCameraInitialized
+          ? (_showSnapshot == false)
+              ? AspectRatio(
+                  aspectRatio: _cameraController.value.aspectRatio,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: <Widget>[
+                      CameraPreview(_cameraController),
+                      CustomPaint(
+                        painter: InferredObjectPainter(_savedRectangle),
+                      ),
+                      (_showSnapshot == false)
+                          ? Text(
+                              _statusText,
+                              style: TextStyle(
+                                backgroundColor: Colors.white,
+                              ),
+                            )
+                          : Text(_imageText),
+                    ],
+                  ),
+                )
+              : Image.memory(_snapShot)
+          : Container(),
+    );
+  }
+
+  Widget _buildLandscapeContent(MediaQueryData mediaQuery, AppBar appBar) {
+    return Container(
+      child: Text('Under development'),
+    );
+  }
+
+  Widget _buildAppBar() {
+    return AppBar(
+      title: Text('Object detection app'),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final isLandscape = mediaQuery.orientation == Orientation.landscape;
+    final appBar = _buildAppBar();
+
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Object detection app'),
-      ),
-      body: Container(
-        child: Column(
-          children: <Widget>[
-            (showSnapshot == false) ? Text(statusText) : Text(imageText),
-            isCameraInitialized
-                ? (showSnapshot == false)
-                    ? Expanded(
-                        child: OverflowBox(
-                          child: AspectRatio(
-                            aspectRatio: _cameraController.value.aspectRatio,
-                            child: Stack(
-                              fit: StackFit.expand,
-                              children: <Widget>[
-                                CameraPreview(_cameraController),
-                                CustomPaint(
-                                  painter:
-                                      InferredObjectPainter(savedRectangle),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      )
-                    : Image.memory(snapShot)
-                : Container(),
-          ],
-        ),
-      ),
+      appBar: _buildAppBar(),
+      body: (isLandscape == false)
+          ? _buildPortraitContent(mediaQuery, appBar)
+          : _buildLandscapeContent(mediaQuery, appBar),
       floatingActionButton: FloatingActionButton(
-        onPressed: takeSnapshot,
+        onPressed: _takeSnapshot,
         backgroundColor: Colors.white,
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 
-  Future<Map> detectObjects(CameraImage image) async {
-    if (tfLiteBusy) {
+  Future<Map> _detectObjects(CameraImage image) async {
+    if (_isTfLiteBusy) {
       return null;
     }
-    tfLiteBusy = true;
+    _isTfLiteBusy = true;
 
     List resultList = await Tflite.detectObjectOnFrame(
       bytesList: image.planes.map((plane) {
@@ -189,7 +208,7 @@ class _MyHomePageState extends State<MyHomePage> {
       threshold: 0.2,
     );
 
-    tfLiteBusy = false;
+    _isTfLiteBusy = false;
 
     Map resultLabel;
     double resultScore = 0.0;
@@ -204,12 +223,12 @@ class _MyHomePageState extends State<MyHomePage> {
     }
 
     if (resultLabel != null) {
-      statusText = 'Class: ' +
+      _statusText = 'Class: ' +
           resultLabel['detectedClass'].toString() +
           ' Score: ' +
           resultLabel['confidenceInClass'].toString();
     } else {
-      statusText = 'No object found';
+      _statusText = 'No object found';
       resultLabel = {
         'rect': {'x': 0.0, 'y': 0.0, 'w': 0.0, 'h': 0.0}
       };
@@ -218,6 +237,7 @@ class _MyHomePageState extends State<MyHomePage> {
     return resultLabel['rect'];
   }
 
+  /// To convert CameraImage to Image object.
   static imglib.Image _convertCameraImage(CameraImage image) {
     int width = image.width;
     int height = image.height;
@@ -251,22 +271,23 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 }
 
+/// To paint the inferred rectangle on the top of image. 
 class InferredObjectPainter extends CustomPainter {
-  Map savedRectangle;
-  InferredObjectPainter(this.savedRectangle);
+  Map _savedRectangle;
+  InferredObjectPainter(this._savedRectangle);
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (savedRectangle != null) {
+    if (_savedRectangle != null) {
       final paint = Paint();
       paint.color = Colors.green;
       paint.style = PaintingStyle.stroke;
       paint.strokeWidth = 3.0;
       double x, y, w, h;
-      x = savedRectangle["x"] * size.width;
-      y = savedRectangle["y"] * size.height;
-      w = savedRectangle["w"] * size.width;
-      h = savedRectangle["h"] * size.height;
+      x = _savedRectangle["x"] * size.width;
+      y = _savedRectangle["y"] * size.height;
+      w = _savedRectangle["w"] * size.width;
+      h = _savedRectangle["h"] * size.height;
       Rect myRect = Offset(x, y) & Size(w, h);
       canvas.drawRect(myRect, paint);
     }
@@ -274,7 +295,7 @@ class InferredObjectPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(InferredObjectPainter oldDelegate) =>
-      oldDelegate.savedRectangle != savedRectangle;
+      oldDelegate._savedRectangle != _savedRectangle;
 
   @override
   bool shouldRebuildSemantics(InferredObjectPainter oldDelegate) => false;
