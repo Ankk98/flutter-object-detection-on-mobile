@@ -26,7 +26,6 @@ dependencies:
   camera:
   image:
   tflite:
-  image_gallery_saver:
   permission_handler:
   image_save:
 
