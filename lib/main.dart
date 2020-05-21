@@ -49,6 +49,8 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   /// Change this enum to change preset resolution.
   var _resolution = ResolutionPreset.medium;
 
+  var _buttonColor = Colors.white;
+
   @override
   void initState() {
     super.initState();
@@ -103,6 +105,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     });
   }
 
+  /// To reinitialize camera and object inference after the app gets resumed.
   void _resumeCamera() async {
     List<CameraDescription> cameras;
     cameras = await availableCameras();
@@ -169,8 +172,10 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     });
   }
 
-  Widget _buildPortraitContent(MediaQueryData mediaQuery, AppBar appBar) {
+  /// Portrait mode view
+  Widget _buildPortraitContent(double height, AppBar appBar) {
     return Container(
+      height: height,
       child: _isCameraInitialized
           ? (_showSnapshot == false)
               ? AspectRatio(
@@ -186,7 +191,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
                           ? Text(
                               _statusText,
                               style: TextStyle(
-                                backgroundColor: Colors.white,
+                                backgroundColor: _buttonColor,
                               ),
                             )
                           : Text(_imageText),
@@ -198,15 +203,34 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildLandscapeContent(MediaQueryData mediaQuery, AppBar appBar) {
+  /// Landscape mode view
+  Widget _buildLandscapeContent(double height, AppBar appBar) {
     return Container(
-      child: Text('Under development'),
+      height: height,
+      child: Text(
+        'Under development',
+      ),
     );
   }
 
+  /// App bar
   Widget _buildAppBar() {
     return AppBar(
       title: Text('Object detection app'),
+      actions: <Widget>[
+        (_showSnapshot == true)
+            ? IconButton(
+                icon: Icon(Icons.arrow_back),
+                onPressed: () {
+                  setState(
+                    () {
+                      _showSnapshot = false;
+                    },
+                  );
+                },
+              )
+            : Container(),
+      ],
     );
   }
 
@@ -214,17 +238,22 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
     final isLandscape = mediaQuery.orientation == Orientation.landscape;
-    final appBar = _buildAppBar();
+    AppBar appBar = _buildAppBar();
+    final height = (mediaQuery.size.height -
+        appBar.preferredSize.height -
+        mediaQuery.padding.top);
 
     return Scaffold(
-      appBar: _buildAppBar(),
+      appBar: appBar,
       body: (isLandscape == false)
-          ? _buildPortraitContent(mediaQuery, appBar)
-          : _buildLandscapeContent(mediaQuery, appBar),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _takeSnapshot,
-        backgroundColor: Colors.white,
-      ),
+          ? _buildPortraitContent(height, appBar)
+          : _buildLandscapeContent(height, appBar),
+      floatingActionButton: _showSnapshot
+          ? Container()
+          : FloatingActionButton(
+              onPressed: _takeSnapshot,
+              backgroundColor: Colors.white,
+            ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
@@ -277,7 +306,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     return resultLabel['rect'];
   }
 
-  /// To convert CameraImage object to Image object.
+  /// To convert CameraImage object to Image object. (Copied)
   static imglib.Image _convertCameraImage(CameraImage image) {
     int width = image.width;
     int height = image.height;
